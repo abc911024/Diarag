@@ -1,0 +1,16 @@
+# Rewrite Prompt v3: Leakage-aware Query Rewrite
+
+Rewrite the following explicit-time diachronic stock question into an implicit-time user question.
+
+Constraints:
+- Use only the original question text, ticker, and stock name.
+- Do not use metadata such as plot_time_bounds, gold_range, temporal_scope_type, anchor_year, or query_type_info.
+- Remove explicit years and explicit time ranges.
+- Preserve the entity, topic, and diachronic intent: trend, change, movement, fluctuation, performance, or response.
+- Do not add new years, dates, facts, or event anchors.
+- Output only the rewritten question.
+
+Rewrite types:
+- Type A: no explicit or relative time expression.
+- Type B: vague relative time expression derived only from the original query text.
+- Type C: event-anchor rewrite only if the original query already contains a clear event anchor.
