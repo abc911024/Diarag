@@ -1,0 +1,11 @@
+.venv/
+.env
+__pycache__/
+*.pyc
+
+# Raw corpus and experiment outputs — not version controlled, see README for how to fetch/regenerate
+dataset/
+outputs/
+exp_ect_qa/processed/
+*.jsonl
+*.csv

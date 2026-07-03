@@ -1,0 +1,29 @@
+services:
+  postgres-pgvector:
+    image: pgvector/pgvector:pg16
+    container_name: bridge_temporal_pg
+    environment:
+      POSTGRES_DB: bridge_temporal
+      POSTGRES_USER: bridge
+      POSTGRES_PASSWORD: bridge
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./postgres/init:/docker-entrypoint-initdb.d
+      - bridge_temporal_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bridge -d bridge_temporal"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  adminer:
+    image: adminer
+    container_name: bridge-temporal-adminer
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres-pgvector
+
+volumes:
+  bridge_temporal_pgdata:
