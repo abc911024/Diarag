@@ -19,12 +19,14 @@
 
 四個模組之間用 CSV/JSON 交接資料:`M0 結果 → M1 檢索結果 → M2 結構化證據 → M3 最終答案`。
 
-另外還有兩個**對照組(baseline)**腳本,對應最終報告 Baselines 一節提到的比較基準:
+另外還有對應最終報告 Baselines 一節與內部消融實驗(ablation)的腳本,都是「换一種 M1 檢索方式,再接一種 M3 答案選擇方式」的組合:
 
-| 對照組 | 說明 | 對應程式碼 |
-|---|---|---|
-| Naive RAG | 不做時序過濾,直接對全語料做語意檢索、取 top-k 丟給 LLM 回答,做為「完全不管時間」的下限基準。 | `scripts/run_m1_tarag_style_qwen.py`(檢索,近似 TA-RAG 手法)+ `scripts/run_m3_naive_rag_gptoss.py`(回答) |
-| TA-RAG 風格 | 用一組錨定在不同年份的「假設性時序查詢」平均向量做檢索,近似既有研究 TA-RAG 的核心做法(並非完整重現),用來對照本論文的檢索策略。 | `scripts/run_m1_tarag_style_qwen.py` |
+| 名稱 | 說明 | M1(檢索) | M3(答案選擇) |
+|---|---|---|---|
+| Naive RAG | 不做時序過濾,直接對全語料做語意檢索,做為「完全不管時間」的下限基準。 | `scripts/run_m1_naive_qwen_baseline.py` | `scripts/run_m3_naive_rag_gptoss.py`(不經過 M2 結構化) |
+| TA-RAG 風格 | 用一組錨定在不同年份的「假設性時序查詢」平均向量做檢索,近似既有研究 TA-RAG 的核心做法(並非完整重現)。 | `scripts/run_m1_tarag_style_qwen.py` | `scripts/run_m3_naive_rag_gptoss.py`(不經過 M2 結構化) |
+| Ours w/o M0 | 消融實驗:直接用 gold 時間範圍做檢索,跳過 M0 的時間範圍推斷,藉此單獨評估 M1-M3。 | `scripts/run_m1_gold_range_qwen.py` | `scripts/run_m3_gptoss_wo_m2.py`(或接 M2 走完整流程) |
+| Ours w/o M2 | 消融實驗:M1 檢索到的原始段落直接丟給 M3,不經過 M2 的逐年結構化。 | `scripts/run_m1_qwen_experiment.py` | `scripts/run_m3_gptoss_wo_m2.py` |
 
 `m0-graph-lite/` 是 M0 的輔助特徵層:用 Postgres 建立一個 Ticker→Year→Evidence 的輕量時序結構(連續性、缺口、覆蓋密度、邊界對比等特徵),過程完全不使用 gold label。細節見 `m0-graph-lite/README_M0_GRAPH_LITE.md`。
 
@@ -41,8 +43,11 @@
 │   ├── run_m1_qwen_experiment.py      # M1:Qwen3-Embedding 稠密檢索 + coverage-aware 重排序
 │   ├── run_m2_gptoss_structure.py     # M2:把 M1 證據結構化成逐年時序證據
 │   ├── run_m3_gptoss_mcqa.py          # M3:依 M2 結構化證據選出最終 MCQA 答案
+│   ├── run_m1_naive_qwen_baseline.py  # 對照組:Naive RAG 檢索(全語料、不做時序過濾)
 │   ├── run_m1_tarag_style_qwen.py     # 對照組:TA-RAG 風格檢索(錨定年份假設查詢平均向量)
-│   └── run_m3_naive_rag_gptoss.py     # 對照組:Naive RAG 最終答案選擇(不做時序過濾)
+│   ├── run_m3_naive_rag_gptoss.py     # 對照組:Naive RAG / TA-RAG 風格的最終答案選擇(不經 M2)
+│   ├── run_m1_gold_range_qwen.py      # 消融:Ours w/o M0(用 gold 範圍檢索,跳過 M0)
+│   └── run_m3_gptoss_wo_m2.py         # 消融:Ours w/o M2(M1 原始段落直接進 M3,不經結構化)
 ├── m0-graph-lite/                     # M0 輔助特徵層(Postgres 時序結構)+ sql/
 ├── Dataest-Bridge/                    # ADQAB-Implicit 改寫流程(bridge_pipeline_v3.1.py)
 ├── exp_bridge_v3_m0/                  # 在 Bridge v3 改寫資料集上單獨評測 M0 的實驗腳本
@@ -54,7 +59,7 @@
 └── pre_A7_m0.md                       # M0 內部實驗報告(E2/E3/E6/E7 各版本結果)
 ```
 
-`scripts/` 資料夾原本有 26 個檔案(M0 的兩種實作、M1/M2/M3 的 Postgres 版本、DB seed/export 工具、smoke test 等),整理後只留下真正拿去產生最終報告數字的那 6 個檔案:M0/M1/M2/M3 主流程各一個,加上 Naive RAG 與 TA-RAG 風格兩個對照組。這 6 個都是單檔可獨立執行(不依賴 Postgres 或其他 script,只需要 pandas/numpy/requests,M1 額外需要 `sentence-transformers`),彼此靠 CSV 檔案交接,詳見下方「執行 pipeline」。其餘刪除的檔案(Postgres 規則式 M0、M1/M2/M3 的 Postgres 版本執行腳本、DB 匯入匯出工具、smoke test)仍保留在 git 歷史紀錄中,需要的話可以從 commit log 找回來。
+`scripts/` 資料夾原本有 26 個檔案(M0 的 Postgres 規則式實作、DB seed/export 工具、smoke test 等),整理後留下真正拿去產生最終報告數字、以及對照組/消融實驗用的 9 個檔案:M0/M1/M2/M3 主流程各一個,加上 Naive RAG、TA-RAG 風格、Ours w/o M0、Ours w/o M2 四組對照/消融實驗腳本。這些都是單檔可獨立執行(不依賴 Postgres,只需要 pandas/numpy/requests,M1 相關腳本額外需要 `sentence-transformers`),彼此靠 CSV 檔案交接,詳見下方「執行 pipeline」。其餘刪除的檔案(Postgres 規則式 M0、DB 匯入匯出工具、smoke test)仍保留在 git 歷史紀錄中,需要的話可以從 commit log 找回來。
 
 `dataset/` 與 `outputs/` 不在這個 repo 裡(見下方「資料」一節)。
 
@@ -148,9 +153,17 @@ python scripts/run_m3_gptoss_mcqa.py \
 
 每支 script 都支援 `--limit 5` 之類的參數,建議先跑 5 筆確認流程正常,再跑全部 204 筆(全部跑完可能要數小時,取決於本地 GPU 與模型速度)。
 
-**對照組(baseline)**
+**對照組與消融實驗(baseline / ablation)**
 
 ```bash
+# Naive RAG:全語料檢索,不做時序過濾
+python scripts/run_m1_naive_qwen_baseline.py \
+  --queries bridge_v3_m0_runs.csv \
+  --corpus-index corpus_index_qwen.csv \
+  --corpus-embeddings corpus_embeddings_qwen.npy \
+  --out m1_naive_qwen_results_with_source.csv \
+  --summary-out m1_naive_qwen_summary.csv
+
 # TA-RAG 風格檢索(用 gold 或 predicted range 都可以,--range-source 切換)
 python scripts/run_m1_tarag_style_qwen.py \
   --queries bridge_v3_m0_runs.csv \
@@ -160,13 +173,29 @@ python scripts/run_m1_tarag_style_qwen.py \
   --out m1_tarag_style_gold_qwen_results_with_source.csv \
   --summary-out m1_tarag_style_gold_qwen_summary.csv
 
-# Naive RAG 最終答案(直接用上面的檢索結果,不經過 M2 結構化)
+# 上面兩種檢索結果都可以接這支做最終答案(不經過 M2 結構化)
 python scripts/run_m3_naive_rag_gptoss.py \
-  --m1-results m1_tarag_style_gold_qwen_results_with_source.csv \
+  --m1-results m1_naive_qwen_results_with_source.csv \
   --mcqa-json dqabench_MCQA.json \
   --backend ollama --model gpt-oss:20b \
   --out m3_naive_rag_answers.csv \
   --summary-out m3_naive_rag_summary.csv
+
+# Ours w/o M0:用 gold 範圍取代 M0 預測範圍做檢索
+python scripts/run_m1_gold_range_qwen.py \
+  --queries bridge_v3_m0_runs.csv \
+  --corpus-index corpus_index_qwen.csv \
+  --corpus-embeddings corpus_embeddings_qwen.npy \
+  --out m1_gold_range_qwen_results_with_source.csv \
+  --summary-out m1_gold_range_qwen_summary.csv
+
+# Ours w/o M2:M1 原始段落直接進 M3,跳過逐年結構化
+python scripts/run_m3_gptoss_wo_m2.py \
+  --m1-results m1_qwen_results.csv \
+  --mcqa-json dqabench_MCQA.json \
+  --backend ollama --model gpt-oss:20b \
+  --out m3_wo_m2_answers.csv \
+  --summary-out m3_wo_m2_summary.csv
 ```
 
 ## 論文最終結果(節錄自最終書面報告)
