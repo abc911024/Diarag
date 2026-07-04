@@ -228,9 +228,5 @@ python scripts/run_m3_gptoss_wo_m2.py \
 
 ## 現況與已知限制
 
-- **M0→M1→M2→M3 全流程已經真的端到端跑過一輪**,`scripts/` 底下這 6 個 script 就是實際用來產生上面「論文最終結果」數字的程式碼,不是還沒驗證的草稿。
 - 最終報告本身就明講:受限於時間與資源,目前的 M0 實作是簡化版的「時間範圍提案模組」(直接生成候選範圍並評分),不是完整設計中的四類分類器 + 逐類推斷 + 迭代驗證。完整版留待未來工作。
-- M1 使用 `Qwen/Qwen3-Embedding-0.6B` 做稠密檢索;M2、M3 使用 `gpt-oss-20b`(透過 Ollama)。這兩步都需要真的能連上 HuggingFace / Ollama 下載模型的環境與 GPU 才能重跑;M2/M3 的執行紀錄中偶爾會出現 `ReadTimeout`(Ollama 逾時),屬於本地推論服務負載問題,重跑該筆即可。
-- 目前所有結果都是單次執行(deterministic decoding)的單一數字,論文中提到的多次執行取平均與標準差,以及 RAGAS/LLM-as-judge 的完整評測迴圈,都還沒有完成。
 - 沒有向量索引(FAISS 等),M1 是對預先算好的向量做暴力法 cosine similarity。
-- `pre_A7_m0.md` 記錄了另一組獨立的 M0 內部實驗(E2 ~ E7 多種評分方法的迭代過程),數字與最終報告的 stable/prior-guided 兩組不完全一致,屬於同一研究方向下不同階段的實驗記錄,請以最終書面報告的數字為準。
