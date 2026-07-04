@@ -58,17 +58,7 @@
 
 ## 資料
 
-原始語料與實驗輸出檔案刻意不進版本控制(`.gitignore`:`dataset/`、`outputs/`、`exp_ect_qa/processed/`、`*.jsonl`、`*.csv`)——光是原始語料就有 ~370MB,而且程式碼本身完全不需要這些檔案就能閱讀、審查。這同時也是當初「檔案太大推不上去」的根本修正:原本的 `.gitignore` 排除的是一個不存在的 `data/` 資料夾,而真正的大型資料夾 `dataset/` 從未被排除。
-
-要在本機真的跑起來,需要從團隊 Google Drive(`實作/ds_final/`)把以下檔案複製回專案根目錄:
-
-- `dataset/corpus_with_time.jsonl`、`dataset/corpus_with_time.csv`、`dataset/C_final.jsonl`、`dataset/dqabench_MCQA.json` —— M1/M3 使用的語料與 MCQA 題庫
-- `Dataest-Bridge/dqabench_MCQA.json` —— 同一份題庫,改寫流程用
-- `m0_final/bridge_rewrite_dataset_v3.csv` —— ADQAB-Implicit 的改寫結果(204 筆真實題目,`exp_bridge_v3_m0` 需要這份檔案才能跑)
-- `exp_ect_qa/processed/*` —— ECT-QA 匯入的中間檔案(只有要重跑 `exp_ect_qa/scripts/` 時才需要)
-- 其餘任何 `outputs/` 資料夾,如果想直接看過去實驗的產出而不是重新產生一次
-
-這個 repo 裡沒有任何 script 能從零生成 `corpus_with_time.jsonl`,但它的源頭其實找得到:`C_final.jsonl`、`dqabench_MCQA.json`、`C_real_metadata.csv`、`C_synth_metadata.csv` 這幾個檔名都跟 TA-RAG 論文(本專案 baseline 之一,見上方比較表)公開釋出的 repo [`kwunhang/TA-RAG`](https://github.com/kwunhang/TA-RAG) 裡 `DQABench/` 資料夾完全一致。該 repo 的 `construct_corpus.ipynb` 說明了原始語料組成:23,737 篇來自 FNSPID 資料集的真實財經新聞(25 檔股票)+ 3,300 篇合成新聞,共 27,037 篇文件,`id` 對 `C_real_metadata.csv`/`C_synth_metadata.csv` 的 `global_id` 即可接上每篇文件的真實發布日期。也就是說,即使拿不到團隊的 Drive 備份,理論上也能從這個公開 repo 重建出 `corpus_with_time`(`doc_id` + `text` + `publish_year`),只是要自己額外做這個 join、且原始 repo 的 `C_final.jsonl` 是用 Git LFS 存的 121MB 檔案。實測過(見下方「現況」)這個 join 邏輯與 `build_qwen_embeddings.py` 的欄位偵測完全相容。
+資料集來源：TA-RAG 論文公開釋出的 repo [`kwunhang/TA-RAG`](https://github.com/kwunhang/TA-RAG) 裡 `DQABench/`。該 repo 的 `construct_corpus.ipynb` 說明了原始語料組成:23,737 篇來自 FNSPID 資料集的真實財經新聞(25 檔股票)+ 3,300 篇合成新聞,共 27,037 篇文件,`id` 對 `C_real_metadata.csv`/`C_synth_metadata.csv` 的 `global_id` 即可接上每篇文件的真實發布日期。
 
 ## 環境建置
 
@@ -144,7 +134,6 @@ python scripts/run_m3_gptoss_mcqa.py \
   --summary-out m3_summary.csv
 ```
 
-每支 script 都支援 `--limit 5` 之類的參數,建議先跑 5 筆確認流程正常,再跑全部 204 筆(全部跑完可能要數小時,取決於本地 GPU 與模型速度)。
 
 **對照組與消融實驗(baseline / ablation)**
 
