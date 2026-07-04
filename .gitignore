@@ -7,5 +7,7 @@ __pycache__/
 dataset/
 outputs/
 exp_ect_qa/processed/
+m0_final/
 *.jsonl
 *.csv
+*.npy
