@@ -2,17 +2,17 @@
 
 面向時序推理的檢索增強生成(Structured Diachronic Reasoning for Retrieval-Augmented Generation)。
 
-一般的 RAG 只看語意相似度做檢索,遇到**時序型問題(diachronic queries)**——也就是問「趨勢」「演變」「隨時間如何變化」的問題(例如「這家公司自 2018 年淨零宣示以來,碳排放軌跡是怎麼變化的?」)——就會失效,因為答案必須綜合橫跨多個時間點的證據,而不是單一段落。DiaRAG 要補上既有時序 RAG 研究留下的兩個缺口:當查詢沒有明講時間範圍時,如何推斷出正確的時間範圍;以及如何真的跨時期做推理,而不是把這件事丟給生成模型自己處理。
+一般的 RAG 只看語意相似度做檢索,遇到**時序型問題(diachronic queries)**——也就是問「趨勢」「演變」「隨時間如何變化」的問題就會失效,因為答案必須綜合橫跨多個時間點的證據,而不是單一段落。DiaRAG 要補上既有時序 RAG 研究留下的兩個缺口:當查詢沒有明講時間範圍時,如何推斷出正確的時間範圍;以及如何真的跨時期做推理,而不是把這件事丟給生成模型自己處理。
 
 本 repo 對應的最終書面報告已附在專案討論紀錄中,以下的模組說明、資料集與實驗數字皆整理自該報告。
 
 ## 四個模組(Pipeline)
 
-論文把整個流程拆成四個模組,一個接一個:
+論文把整個流程拆成四個模組:
 
 | 模組 | 名稱 | 做什麼 | 對應程式碼 |
 |---|---|---|---|
-| **M0** | 時間範圍推斷 | 判斷查詢的時序類型(explicit 明確 / relative 相對 / event-anchored 事件錨定 / latent 隱性),並推斷出一個 `[start_year, end_year]` 時間窗。論文完整設計是四類分類器 + 逐類推斷策略 + 迭代式覆蓋率驗證,但**目前程式碼實作的是簡化版**:直接生成一組候選時間窗並評分挑選,完整版留待未來工作。 | `scripts/run_m0_experiment_gptoss.py` |
+| **M0** | 時間範圍推斷 | 判斷查詢的時序類型(explicit 明確 / relative 相對 / event-anchored 事件錨定 / latent 隱性),並推斷出一個 `[start_year, end_year]` 目前實作的是:直接生成一組候選時間窗並評分挑選。 | `scripts/run_m0_experiment_gptoss.py` |
 | **M1** | 時序檢索 | 用 Qwen3-Embedding-0.6B 對語料做稠密向量檢索,依 M0 推斷出的年份範圍篩選候選段落,並用 coverage-aware 重排序機制,限制同一年份被選中的段落數,以增加時間分佈的多樣性。 | `build_qwen_embeddings.py`(建索引)、`scripts/run_m1_qwen_experiment.py` |
 | **M2** | 時序證據結構化 | 把 M1 檢索到的段落依發布年份分組,用 `gpt-oss-20b`(透過 Ollama)幫每一年生成摘要、時序訊號(positive/negative/stable/mixed/volatile/not_directly_related/no_evidence)與證據充足度判斷,組成逐年的時序證據結構。不會重新檢索。 | `scripts/run_m2_gptoss_structure.py` |
 | **M3** | 結構化時序推理 | 把 M2 產出的逐年證據結構、原始四選一選項一起丟給 `gpt-oss-20b`,選出最終答案,並回傳支持年份、證據充足度與簡短理由。 | `scripts/run_m3_gptoss_mcqa.py` |
@@ -20,19 +20,12 @@
 四個模組之間用 CSV/JSON 交接資料:`M0 結果 → M1 檢索結果 → M2 結構化證據 → M3 最終答案`。
 
 另外還有對應最終報告 Baselines 一節與內部消融實驗(ablation)的腳本,都是「换一種 M1 檢索方式,再接一種 M3 答案選擇方式」的組合:
-
 | 名稱 | 說明 | M1(檢索) | M3(答案選擇) |
 |---|---|---|---|
 | Naive RAG | 不做時序過濾,直接對全語料做語意檢索,做為「完全不管時間」的下限基準。 | `scripts/run_m1_naive_qwen_baseline.py` | `scripts/run_m3_naive_rag_gptoss.py`(不經過 M2 結構化) |
 | TA-RAG 風格 | 用一組錨定在不同年份的「假設性時序查詢」平均向量做檢索,近似既有研究 TA-RAG 的核心做法(並非完整重現)。 | `scripts/run_m1_tarag_style_qwen.py` | `scripts/run_m3_naive_rag_gptoss.py`(不經過 M2 結構化) |
 | Ours w/o M0 | 消融實驗:直接用 gold 時間範圍做檢索,跳過 M0 的時間範圍推斷,藉此單獨評估 M1-M3。 | `scripts/run_m1_gold_range_qwen.py` | `scripts/run_m3_gptoss_wo_m2.py`(或接 M2 走完整流程) |
 | Ours w/o M2 | 消融實驗:M1 檢索到的原始段落直接丟給 M3,不經過 M2 的逐年結構化。 | `scripts/run_m1_qwen_experiment.py` | `scripts/run_m3_gptoss_wo_m2.py` |
-
-`m0-graph-lite/` 是 M0 的輔助特徵層:用 Postgres 建立一個 Ticker→Year→Evidence 的輕量時序結構(連續性、缺口、覆蓋密度、邊界對比等特徵),過程完全不使用 gold label。細節見 `m0-graph-lite/README_M0_GRAPH_LITE.md`。
-
-`Dataest-Bridge/` 與 `exp_bridge_v3_m0/` 負責建構與評估 **ADQAB-Implicit**:把 ADQAB 題目改寫成 relative / event-anchored / latent 三種隱性時間表達形式,同時保留原本的 gold 答案與時間範圍,專門用來評估 M0 在「查詢沒有明講時間」情境下的表現。
-
-`exp_ect_qa/` 是另一個獨立的可行性實驗,驗證外部資料集 `austinmyc/ECT-QA` 能不能在不強套 schema 的前提下,套進這個框架裡使用;細節見 `exp_ect_qa/README.md`。
 
 ## 專案結構
 
@@ -56,7 +49,7 @@
 ├── docker-compose.yml                 # 本地開發用的 postgres+pgvector 與 adminer
 ├── build_qwen_embeddings.py           # 建立 M1 用的語料向量索引
 ├── requirements.txt                   # 完整環境凍結(conda freeze)
-└── pre_A7_m0.md                       # M0 內部實驗報告(E2/E3/E6/E7 各版本結果)
+
 ```
 
 `scripts/` 資料夾原本有 26 個檔案(M0 的 Postgres 規則式實作、DB seed/export 工具、smoke test 等),整理後留下真正拿去產生最終報告數字、以及對照組/消融實驗用的 9 個檔案:M0/M1/M2/M3 主流程各一個,加上 Naive RAG、TA-RAG 風格、Ours w/o M0、Ours w/o M2 四組對照/消融實驗腳本。這些都是單檔可獨立執行(不依賴 Postgres,只需要 pandas/numpy/requests,M1 相關腳本額外需要 `sentence-transformers`),彼此靠 CSV 檔案交接,詳見下方「執行 pipeline」。其餘刪除的檔案(Postgres 規則式 M0、DB 匯入匯出工具、smoke test)仍保留在 git 歷史紀錄中,需要的話可以從 commit log 找回來。
