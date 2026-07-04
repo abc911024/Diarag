@@ -68,7 +68,7 @@
 - `exp_ect_qa/processed/*` —— ECT-QA 匯入的中間檔案(只有要重跑 `exp_ect_qa/scripts/` 時才需要)
 - 其餘任何 `outputs/` 資料夾,如果想直接看過去實驗的產出而不是重新產生一次
 
-這個 repo 裡沒有任何 script 能從零生成 `corpus_with_time.jsonl`——它是團隊事先準備好的資料,不是有下載連結的公開資料集,只能從團隊的備份取得。
+這個 repo 裡沒有任何 script 能從零生成 `corpus_with_time.jsonl`,但它的源頭其實找得到:`C_final.jsonl`、`dqabench_MCQA.json`、`C_real_metadata.csv`、`C_synth_metadata.csv` 這幾個檔名都跟 TA-RAG 論文(本專案 baseline 之一,見上方比較表)公開釋出的 repo [`kwunhang/TA-RAG`](https://github.com/kwunhang/TA-RAG) 裡 `DQABench/` 資料夾完全一致。該 repo 的 `construct_corpus.ipynb` 說明了原始語料組成:23,737 篇來自 FNSPID 資料集的真實財經新聞(25 檔股票)+ 3,300 篇合成新聞,共 27,037 篇文件,`id` 對 `C_real_metadata.csv`/`C_synth_metadata.csv` 的 `global_id` 即可接上每篇文件的真實發布日期。也就是說,即使拿不到團隊的 Drive 備份,理論上也能從這個公開 repo 重建出 `corpus_with_time`(`doc_id` + `text` + `publish_year`),只是要自己額外做這個 join、且原始 repo 的 `C_final.jsonl` 是用 Git LFS 存的 121MB 檔案。實測過(見下方「現況」)這個 join 邏輯與 `build_qwen_embeddings.py` 的欄位偵測完全相容。
 
 ## 環境建置
 
@@ -223,3 +223,4 @@ python scripts/run_m3_gptoss_wo_m2.py \
 
 - 最終報告本身就明講:受限於時間與資源,目前的 M0 實作是簡化版的「時間範圍提案模組」(直接生成候選範圍並評分),不是完整設計中的四類分類器 + 逐類推斷 + 迭代驗證。完整版留待未來工作。
 - 沒有向量索引(FAISS 等),M1 是對預先算好的向量做暴力法 cosine similarity。
+- 已用真實資料驗證過 M0 輸出與 MCQA 題庫的 `source_id` 對接、以及 `corpus_with_time`(源自 TA-RAG 公開語料)與 `build_qwen_embeddings.py` 欄位偵測邏輯的相容性;尚未驗證的只剩需要連上 HuggingFace / Ollama 才能執行的實際向量化與 LLM 推理步驟。
