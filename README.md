@@ -181,7 +181,6 @@ python scripts/run_m3_gptoss_wo_m2.py \
 
 ## 論文最終結果(節錄自最終書面報告)
 
-以下數字全部來自 ADQAB-Implicit(204 筆改寫題目,event-anchored / latent / relative-time 各 68 筆),摘自最終報告的實驗結果章節,不是本 repo 自己重新量測的:
 
 **M0 時間範圍推斷**(整體,兩種評分策略):
 
