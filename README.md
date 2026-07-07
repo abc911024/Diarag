@@ -51,7 +51,7 @@
 
 ```
 
-`scripts/` 資料夾原本有 26 個檔案(M0 的 Postgres 規則式實作、DB seed/export 工具、smoke test 等),整理後留下真正拿去產生最終報告數字、以及對照組/消融實驗用的 9 個檔案:M0/M1/M2/M3 主流程各一個,加上 Naive RAG、TA-RAG 風格、Ours w/o M0、Ours w/o M2 四組對照/消融實驗腳本。這些都是單檔可獨立執行(不依賴 Postgres,只需要 pandas/numpy/requests,M1 相關腳本額外需要 `sentence-transformers`),彼此靠 CSV 檔案交接,詳見下方「執行 pipeline」。其餘刪除的檔案(Postgres 規則式 M0、DB 匯入匯出工具、smoke test)仍保留在 git 歷史紀錄中,需要的話可以從 commit log 找回來。
+`scripts/` 資料夾原本有 26 個檔案(M0 的 Postgres 規則式實作、DB seed/export 工具、smoke test 等),整理後留下真正拿去產生最終報告數字、以及對照組/消融實驗用的 9 個檔案:M0/M1/M2/M3 主流程各一個,加上 Naive RAG、TA-RAG 風格、Ours w/o M0、Ours w/o M2 四組對照/消融實驗腳本。這些都是單檔可獨立執行(不依賴 Postgres,只需要 pandas/numpy/requests,M1 相關腳本額外需要 `sentence-transformers`),彼此靠 CSV 檔案交接。
 
 `dataset/` 與 `outputs/` 不在這個 repo 裡(見下方「資料」一節)。
 
@@ -69,7 +69,6 @@ pip install -r requirements.txt
 
 `docker-compose.yml` 掛載了 `postgres/init/`,第一次啟動時會自動建立 schema(`qa`、`content`、`runtime`、`m0_graph`)。
 
-> 補充:若沒有 Docker,原生安裝的 PostgreSQL 16 + `postgresql-16-pgvector`(可透過 apt 直接安裝)也已驗證過整套 schema 可以無錯誤套用。
 
 ## 執行 pipeline
 
