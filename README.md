@@ -208,6 +208,5 @@ python scripts/run_m3_gptoss_wo_m2.py \
 
 ## 現況與已知限制
 
-- 最終報告本身就明講:受限於時間與資源,目前的 M0 實作是簡化版的「時間範圍提案模組」(直接生成候選範圍並評分),不是完整設計中的四類分類器 + 逐類推斷 + 迭代驗證。完整版留待未來工作。
+- 受限於時間與資源,目前的 M0 實作是簡化版的「時間範圍提案模組」(直接生成候選範圍並評分),完整版留待未來工作。
 - 沒有向量索引(FAISS 等),M1 是對預先算好的向量做暴力法 cosine similarity。
-- 已用真實資料驗證過 M0 輸出與 MCQA 題庫的 `source_id` 對接、以及 `corpus_with_time`(源自 TA-RAG 公開語料)與 `build_qwen_embeddings.py` 欄位偵測邏輯的相容性;尚未驗證的只剩需要連上 HuggingFace / Ollama 才能執行的實際向量化與 LLM 推理步驟。
